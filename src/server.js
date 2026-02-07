@@ -1,6 +1,6 @@
 import express from 'express';
-import authRoutes from './routes/auth.js';
-import { authenticateToken } from './middleware/auth.js';
+import authRoutes from './routes/authRoutes.js';
+import { authenticateToken } from './middleware/authMiddleware.js';
 
 const app = express();
 
