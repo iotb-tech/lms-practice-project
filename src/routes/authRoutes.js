@@ -8,45 +8,52 @@ import {
 import {
  authenticateToken,
  authorizeRoles
-} from '../middleware/auth.js';
-import { validate } from '../middleware/validation.js'; // Assume Zod/Joi middleware
-import {
- registerSchema,
- verifyOtpSchema,
- loginSchema,
- refreshSchema
-} from '../validations/authValidation.js';
+} from '../middleware/authMiddleware.js';
+
+// Simple inline validation - NO external files needed
+const simpleValidation = (req, res, next) => {
+ const { firstName, lastName, email, password, role, userId, otp, refreshToken } = req.body;
+
+ if (req.path.includes('register')) {
+  if (!firstName?.trim() || firstName.length < 2) return res.status(400).json({ success: false, message: 'First name required' });
+  if (!lastName?.trim() || lastName.length < 2) return res.status(400).json({ success: false, message: 'Last name required' });
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, message: 'Valid email required' });
+  if (!password || password.length < 8) return res.status(400).json({ success: false, message: 'Password minimum 8 characters' });
+  req.validated = { firstName: firstName.trim(), lastName: lastName.trim(), email, password, role: role || 'student' };
+  return next();
+ }
+
+ if (req.path.includes('login')) {
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, message: 'Valid email required' });
+  if (!password || password.length < 8) return res.status(400).json({ success: false, message: 'Password required' });
+  req.validated = { email, password };
+  return next();
+ }
+
+ if (req.path.includes('verify-otp')) {
+  if (!userId || !otp || otp.length !== 6) return res.status(400).json({ success: false, message: 'Valid userId and 6-digit OTP required' });
+  req.validated = { userId, otp };
+  return next();
+ }
+
+ if (req.path.includes('refresh')) {
+  if (!refreshToken) return res.status(400).json({ success: false, message: 'Refresh token required' });
+  req.validated = { refreshToken };
+  return next();
+ }
+
+ next();
+};
 
 const router = Router();
 
-router.post('/register', validate(registerSchema), registerUser);           // POST /api/auth/register
-router.post('/verify-otp', validate(verifyOtpSchema), verifyOtpHandler);  // POST /api/auth/verify-otp
-router.post('/login', validate(loginSchema), loginUser);                  // POST /api/auth/login
-router.post('/refresh', validate(refreshSchema), refreshAccessToken);     // POST /api/auth/refresh
+router.post('/register', simpleValidation, registerUser);
+router.post('/verify-otp', simpleValidation, verifyOtpHandler);
+router.post('/login', simpleValidation, loginUser);
+router.post('/refresh', simpleValidation, refreshAccessToken);
 
-// Protected profile routes 
-router.get('/profile', authenticateToken, async (req, res) => {
- res.json({
-  success: true,
-  data: req.user
- });
+router.get('/profile', authenticateToken, (req, res) => {
+ res.json({ success: true, data: req.user });
 });
-
-router.patch('/profile',
- authenticateToken,
- validate(updateProfileSchema),
- async (req, res) => {
-  // Update profile logic
- }
-);
-
-// Admin-only routes
-router.get('/users',
- authenticateToken,
- authorizeRoles('admin'),
- async (req, res) => {
-  // List users logic
- }
-);
 
 export default router;

@@ -1,16 +1,7 @@
-import express from 'express';
-import authRoutes from './routes/authRoutes.js';
-import { authenticateToken } from './middleware/authMiddleware.js';
+import app from './app.js';
 
-const app = express();
+const PORT = process.env.PORT || 5000;
 
-// Public auth routes
-app.use('/api/auth', authRoutes);
-
-// Protected routes example
-app.use('/api/courses', authenticateToken, courseRoutes);
-app.use('/api/admin', authenticateToken, authorizeRoles('admin'), adminRoutes);
-
-app.listen(9000, () => {
-  console.log('Server running on port 9000');
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
