@@ -1,55 +1,50 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { AppError } from '../utils/AppError.js';
-import { logWarn } from '../utils/logger.js';
-import { config } from '../config/index.js';
 
 export const authenticateToken = async (req, res, next) => {
  try {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-   return next(new AppError('Access token required', 401));
-  }
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-  const token = authHeader.split(' ')[1];
   if (!token) {
-   return next(new AppError('Access token required', 401));
+   return res.status(401).json({
+    success: false,
+    status: 'error',
+    message: 'Access token required'
+   });
   }
 
-  const decoded = jwt.verify(token, config.jwt.accessSecret);
-  const user = await User.findById(decoded.userId).select('status role');
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const user = await User.findById(decoded.userId).select('-password');
 
-  if (!user || user.status !== 'active') {
-   return next(new AppError('Invalid token or inactive user', 401));
+  if (!user || !user.isActive) {
+   return res.status(401).json({
+    success: false,
+    status: 'error',
+    message: 'Invalid token'
+   });
   }
 
-  req.user = {
-   id: user._id.toString(),
-   role: user.role,
-   email: user.email
-  };
+  req.user = user;
   next();
  } catch (error) {
-  logWarn('Token verification failed', {
-   url: req.originalUrl,
-   method: req.method
+  res.status(403).json({
+   success: false,
+   status: 'error',
+   message: 'Invalid token'
   });
-  next(new AppError('Invalid or expired token', 401));
  }
 };
 
-export const requireRole = (...roles) => (req, res, next) => {
- if (!req.user || !roles.includes(req.user.role)) {
-  return next(new AppError('Insufficient permissions', 403));
- }
- next();
-};
-
-// Role hierarchy check
-export const requireHigherRole = (minRole) => (req, res, next) => {
- const roleHierarchy = { USER: 1, MERCHANT: 2, ADMIN: 3 };
- if (!req.user || roleHierarchy[req.user.role] <= roleHierarchy[minRole]) {
-  return next(new AppError('Insufficient permissions', 403));
- }
- next();
+export const authorizeRoles = (...roles) => {
+ return (req, res, next) => {
+  if (!roles.includes(req.user.role)) {
+   return res.status(403).json({
+    success: false,
+    status: 'error',
+    message: `Role ${req.user.role} not authorized`
+   });
+  }
+  next();
+ };
 };

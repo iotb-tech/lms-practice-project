@@ -1,96 +1,53 @@
-import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { AppError } from '../utils/AppError.js';
-import { logWarn, logInfo } from '../utils/logger.js';
-import { config } from '../config/index.js';
-import RefreshToken from '../models/RefreshToken.js'; // New model for token rotation
+import { hashPassword, comparePassword } from '../utils/hash.js';
+import { generateTokens } from '../utils/jwt.js';
+import { generateOTP } from '../utils/otp.js';
+import { createUser, findUserByEmail, findUserById, updateUserOtp, verifyUserOtp } from './userService.js';
+import jwt from 'jsonwebtoken';
 
-export class AuthService {
- static generateTokens(payload) {
-  const accessToken = jwt.sign(payload, config.jwt.accessSecret, {
-   expiresIn: config.jwt.accessExpiry || '15m'
-  });
+const OTP_EXPIRY = 10 * 60 * 1000; // 10 minutes
 
-  const refreshToken = jwt.sign(payload, config.jwt.refreshSecret, {
-   expiresIn: config.jwt.refreshExpiry || '7d'
-  });
-
-  return { accessToken, refreshToken };
+export const register = async (userData) => {
+ const existingUser = await findUserByEmail(userData.email);
+ if (existingUser) {
+  if (existingUser.isActive) {
+   throw new Error('Email already exists');
+  }
+  // Reactivate existing user
+  const otp = generateOTP();
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY);
+  await updateUserOtp(existingUser._id, otp, expiresAt);
+  return { userId: existingUser._id, otp };
  }
 
- static async login(email, password) {
-  const user = await User.findOne({ email }).select('+password');
+ const user = await createUser(userData);
+ const otp = generateOTP();
+ const expiresAt = new Date(Date.now() + OTP_EXPIRY);
+ await updateUserOtp(user._id, otp, expiresAt);
+ return { userId: user._id, otp };
+};
 
-  if (!user || user.status !== 'active' || !(await user.comparePassword(password))) {
-   logWarn('Failed login attempt', { email });
-   throw new AppError('Invalid credentials', 401);
-  }
-
-  // Delete any existing refresh tokens for this user (single session)
-  await RefreshToken.deleteMany({ userId: user._id });
-
-  const tokens = this.generateTokens({
-   userId: user._id.toString(),
-   role: user.role
-  });
-
-  // Store refresh token for rotation
-  await RefreshToken.create({
-   token: tokens.refreshToken,
-   userId: user._id,
-   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  });
-
-  logInfo('User logged in', { userId: user.id, email: user.email });
-
-  return {
-   user: {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role
-   },
-   tokens
-  };
+export const verifyOtp = async (userId, otp) => {
+ const user = await verifyUserOtp(userId, otp);
+ if (!user) {
+  throw new Error('Invalid or expired OTP');
  }
+ const payload = { userId: user._id, role: user.role };
+ return generateTokens(payload);
+};
 
- static async refreshToken(token) {
-  // Verify token
-  const decoded = jwt.verify(token, config.jwt.refreshSecret);
-
-  // Check if token exists and not used
-  const refreshTokenDoc = await RefreshToken.findOne({
-   token,
-   userId: decoded.userId
-  });
-
-  if (!refreshTokenDoc) {
-   throw new AppError('Invalid refresh token', 403);
-  }
-
-  const user = await User.findById(decoded.userId).select('status role');
-  if (!user || user.status !== 'active') {
-   await RefreshToken.deleteOne({ token });
-   throw new AppError('User inactive', 403);
-  }
-
-  // Delete old token (rotation)
-  await RefreshToken.deleteOne({ token });
-
-  // Generate new tokens
-  const newTokens = this.generateTokens({
-   userId: user._id.toString(),
-   role: user.role
-  });
-
-  // Store new refresh token
-  await RefreshToken.create({
-   token: newTokens.refreshToken,
-   userId: user._id,
-   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  });
-
-  logInfo('Tokens refreshed', { userId: user.id });
-  return newTokens;
+export const login = async (email, password) => {
+ const user = await findUserByEmail(email);
+ if (!user || !user.isActive || !(await comparePassword(password, user.password))) {
+  throw new Error('Invalid credentials');
  }
-}
+ const payload = { userId: user._id, role: user.role };
+ return generateTokens(payload);
+};
+
+export const refreshToken = async (refreshToken) => {
+ const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+ const user = await findUserById(decoded.userId);
+ if (!user) throw new Error('Invalid refresh token');
+ return generateTokens({ userId: user._id, role: user.role });
+};
