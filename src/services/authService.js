@@ -1,49 +1,4 @@
-import User from '../models/User.js';
-import { hashPassword, comparePassword } from '../utils/hash.js';
-import { generateTokens } from '../utils/jwt.js';
-import { generateOTP } from '../utils/otp.js';
-import { createUser, findUserByEmail, findUserById, updateUserOtp, verifyUserOtp } from './userService.js';
-import nodemailer from 'nodemailer';
-import jwt from 'jsonwebtoken';
-
-const OTP_EXPIRY = 10 * 60 * 1000; // 10 minutes
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-  port: parseInt(process.env.SMTP_PORT) || 2525,
-  auth: {
-    user: process.env.SMTP_USER || process.env.EMAIL_USER,
-    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS
-  },
-  secure: false,
-  tls: { rejectUnauthorized: false }
-});
-
-const sendOtpEmail = async (email, otp) => {
-  const mailOptions = {
-    from: `"LMS App" <${process.env.SMTP_USER || process.env.EMAIL_USER}>`,
-    to: email,
-    subject: 'Your LMS Verification Code',
-    html: `
-      <h2>🧑‍🎓 Your Verification Code</h2>
-      <div style="background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
-                  color: white; padding: 20px; text-align: center; 
-                  font-size: 32px; font-weight: bold; border-radius: 10px;
-                  letter-spacing: 8px; margin: 20px 0;">
-        ${otp}
-      </div>
-      <p>This code expires in <strong>10 minutes</strong>.</p>
-    `
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log(`EMAIL SENT to ${email}`);
-  } catch (error) {
-    console.error('EMAIL FAILED:', error.message);
-    console.log(`DEV OTP: ${otp}`);  // Fallback for testing
-  }
-};
+import { AppError } from '../utils/AppError.js';
 
 export const register = async (userData) => {
   const existingUser = await findUserByEmail(userData.email);
@@ -53,7 +8,7 @@ export const register = async (userData) => {
 
   if (existingUser) {
     if (existingUser.isActive) {
-      throw new Error('Email already exists');
+      throw new AppError('Email already exists', 400);
     }
     userId = existingUser._id;
     await updateUserOtp(userId, otp, expiresAt);
@@ -64,17 +19,14 @@ export const register = async (userData) => {
   }
 
   await sendOtpEmail(userData.email, otp);
-
-  console.log(` REGISTERED: ${userData.email}`);
-  console.log(`OTP: ${otp}\n`);
-
+  console.log(` REGISTERED: ${userData.email} | OTP: ${otp}`);
   return { userId };
 };
 
 export const verifyOtp = async (otp) => {
   const user = await verifyUserOtp(otp);
   if (!user) {
-    throw new Error('Invalid or expired OTP');
+    throw new AppError('Invalid or expired OTP', 400);
   }
   const payload = { userId: user._id, role: user.role };
   return generateTokens(payload);
@@ -83,15 +35,19 @@ export const verifyOtp = async (otp) => {
 export const login = async (email, password) => {
   const user = await findUserByEmail(email);
   if (!user || !user.isActive || !(await comparePassword(password, user.password))) {
-    throw new Error('Invalid credentials');
+    throw new AppError('Invalid credentials', 401);
   }
   const payload = { userId: user._id, role: user.role };
   return generateTokens(payload);
 };
 
 export const refreshToken = async (refreshToken) => {
-  const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-  const user = await findUserById(decoded.userId);
-  if (!user) throw new Error('Invalid refresh token');
-  return generateTokens({ userId: user._id, role: user.role });
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await findUserById(decoded.userId);
+    if (!user) throw new AppError('Invalid refresh token', 401);
+    return generateTokens({ userId: user._id, role: user.role });
+  } catch (error) {
+    throw new AppError('Invalid refresh token', 401);
+  }
 };
