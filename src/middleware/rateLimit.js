@@ -1,10 +1,14 @@
 import rateLimit from 'express-rate-limit';
+import { config } from '../config/index.js';
 
-const authLimiter = rateLimit({
- windowMs: 15 * 60 * 1000, // 15 minutes
- max: 5, // 5 attempts per window
- message: { success: false, message: 'Too many attempts' }
+const createLimiter = (max, message) => rateLimit({
+ windowMs: config.rateLimit.windowMs,
+ max,
+ message: { success: false, message },
+ standardHeaders: true,
+ legacyHeaders: false,
 });
 
-router.use('/register', authLimiter);
-router.use('/login', authLimiter);
+export const authLimiter = createLimiter(5, 'Too many authentication attempts. Try again later.');
+export const otpLimiter = createLimiter(3, 'Too many OTP attempts. Try again later.');
+export const refreshLimiter = createLimiter(10, 'Too many refresh attempts. Try again later.');

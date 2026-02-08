@@ -1,6 +1,9 @@
 import User from '../models/User.js';
-import { hashPassword } from '../utils/hash.js';
+import { hashPassword, comparePassword } from '../utils/hash.js';
 import { AppError } from '../utils/AppError.js';
+import mongoose from 'mongoose';
+
+const { isValidObjectId } = mongoose.Types.ObjectId;
 
 export const createUser = async (userData) => {
  try {
@@ -8,25 +11,23 @@ export const createUser = async (userData) => {
   const user = await User.create({
    ...userData,
    password: hashedPassword,
-   isActive: false
+   isActive: false,
   });
   return user;
  } catch (error) {
-  // MongoDB duplicate key error (email unique)
   if (error.code === 11000) {
-   throw new AppError('Email already exists', 400);
+   throw new AppError('Email already exists', 409);
   }
-  // Mongoose validation errors
   if (error.name === 'ValidationError') {
    throw new AppError('Invalid user data', 400);
   }
-  throw error;  // Re-throw unexpected errors
+  throw new AppError('Failed to create user', 500);
  }
 };
 
 export const findUserByEmail = async (email) => {
  try {
-  return User.findOne({ email }).select('+password');
+  return await User.findOne({ email }).select('+password');
  } catch (error) {
   throw new AppError('Database error', 500);
  }
@@ -34,11 +35,10 @@ export const findUserByEmail = async (email) => {
 
 export const findUserById = async (id) => {
  try {
-  // Validate ObjectId format
-  if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+  if (!isValidObjectId(id)) {
    throw new AppError('Invalid user ID', 400);
   }
-  return User.findById(id).select('-password');
+  return await User.findById(id).select('-password -otp -otpExpiresAt');
  } catch (error) {
   if (error.name === 'CastError') {
    throw new AppError('Invalid user ID', 400);
@@ -49,13 +49,13 @@ export const findUserById = async (id) => {
 
 export const updateUserOtp = async (userId, otp, expiresAt) => {
  try {
-  if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+  if (!isValidObjectId(userId)) {
    throw new AppError('Invalid user ID', 400);
   }
-  return User.findByIdAndUpdate(
+  return await User.findByIdAndUpdate(
    userId,
    { otp, otpExpiresAt: expiresAt },
-   { new: true }
+   { new: true, runValidators: true }
   );
  } catch (error) {
   if (error.name === 'CastError') {
@@ -73,15 +73,8 @@ export const verifyUserOtp = async (otp) => {
 
   const user = await User.findOne({
    otp,
-   otpExpiresAt: { $gt: new Date() }
-  }).select('otp otpExpiresAt isActive');
-
-  console.log('DEBUG:', {
-   otp,
-   foundUserId: user?._id,
-   storedOtp: user?.otp,
-   expires: user?.otpExpiresAt
-  });
+   otpExpiresAt: { $gt: new Date() },
+  }).select('_id role isActive otp otpExpiresAt');
 
   if (!user) {
    return null;
@@ -91,16 +84,13 @@ export const verifyUserOtp = async (otp) => {
    user._id,
    {
     $unset: { otp: 1, otpExpiresAt: 1 },
-    isActive: true
+    isActive: true,
    },
    { new: true }
   );
 
   return updated || user;
  } catch (error) {
-  if (error.name === 'CastError') {
-   throw new AppError('Database error', 500);
-  }
-  throw error;
+  throw new AppError('OTP verification failed', 500);
  }
 };

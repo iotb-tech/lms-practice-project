@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["student", "instructor", "admin"],
       default: "student",
+      index: true,
     },
     avatarUrl: {
       type: String,

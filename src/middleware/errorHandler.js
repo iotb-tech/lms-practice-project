@@ -1,4 +1,5 @@
 import { logError } from './logger.js';
+import { AppError } from '../utils/AppError.js';
 
 export const globalErrorHandler = (err, req, res, next) => {
  // Log full error details
@@ -6,10 +7,10 @@ export const globalErrorHandler = (err, req, res, next) => {
   stack: err.stack,
   url: req.originalUrl,
   method: req.method,
-  user: req.user?.id || 'anonymous'
+  userId: req.user?._id || 'anonymous'
  });
 
-
+ // AppError (custom errors)
  if (err instanceof AppError) {
   return res.status(err.statusCode).json({
    success: false,
@@ -23,7 +24,7 @@ export const globalErrorHandler = (err, req, res, next) => {
   return res.status(400).json({
    success: false,
    message: 'Validation failed',
-   errors: err.errors
+   errors: err.errors.map(e => e.message)
   });
  }
 

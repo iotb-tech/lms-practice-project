@@ -1,14 +1,22 @@
 import jwt from 'jsonwebtoken';
-
-const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_EXPIRY = '7d';
+import { config } from '../config/index.js';
 
 export const generateTokens = (payload) => {
- const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
- const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+ const accessToken = jwt.sign(
+  payload,
+  config.jwt.accessSecret,
+  { expiresIn: config.jwt.accessExpiry }
+ );
+
+ const refreshToken = jwt.sign(
+  payload,
+  config.jwt.refreshSecret,
+  { expiresIn: config.jwt.refreshExpiry }
+ );
+
  return { accessToken, refreshToken };
 };
 
-export const verifyToken = (token, secret = process.env.JWT_SECRET) => {
+export const verifyToken = (token, secret = config.jwt.accessSecret) => {
  return jwt.verify(token, secret);
 };

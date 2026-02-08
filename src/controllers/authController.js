@@ -1,14 +1,17 @@
-import { register, verifyOtp, login, refreshToken } from '../services/authService.js';
+import { register, verifyOtp, login, refreshTokenFunc } from '../services/authService.js';
+
+const sendSuccessResponse = (res, statusCode, message, data = null) => {
+ res.status(statusCode).json({
+  success: true,
+  message,
+  ...(data && { data }),
+ });
+};
 
 export const registerUser = async (req, res, next) => {
  try {
-  const { firstName, lastName, email, password, role = 'student' } = req.validated;
-  const result = await register({ firstName, lastName, email, password, role });
-  res.status(201).json({
-   success: true,
-   message: 'Registration successful. Check email/console for OTP.',
-   data: { userId: result.userId }
-  });
+  const result = await register(req.validated);
+  sendSuccessResponse(res, 201, 'Registration successful. Check your email for OTP.', result);
  } catch (error) {
   next(error);
  }
@@ -16,13 +19,8 @@ export const registerUser = async (req, res, next) => {
 
 export const verifyOtpHandler = async (req, res, next) => {
  try {
-  const { otp } = req.validated;
-  const tokens = await verifyOtp(otp);
-  res.json({
-   success: true,
-   message: 'Verification successful',
-   data: tokens
-  });
+  const tokens = await verifyOtp(req.validated.otp);
+  sendSuccessResponse(res, 200, 'Email verification successful', tokens);
  } catch (error) {
   next(error);
  }
@@ -30,13 +28,8 @@ export const verifyOtpHandler = async (req, res, next) => {
 
 export const loginUser = async (req, res, next) => {
  try {
-  const { email, password } = req.validated;
-  const tokens = await login(email, password);
-  res.json({
-   success: true,
-   message: 'Login successful',
-   data: tokens
-  });
+  const tokens = await login(req.validated.email, req.validated.password);
+  sendSuccessResponse(res, 200, 'Login successful', tokens);
  } catch (error) {
   next(error);
  }
@@ -44,14 +37,13 @@ export const loginUser = async (req, res, next) => {
 
 export const refreshAccessToken = async (req, res, next) => {
  try {
-  const { refreshToken: token } = req.validated;
-  const newTokens = await refreshToken(token);
-  res.json({
-   success: true,
-   message: 'Tokens refreshed successfully',
-   data: newTokens
-  });
+  const newTokens = await refreshTokenFunc(req.validated.refreshToken);
+  sendSuccessResponse(res, 200, 'Tokens refreshed successfully', newTokens);
  } catch (error) {
   next(error);
  }
+};
+
+export const getProfile = async (req, res) => {
+ sendSuccessResponse(res, 200, 'Profile retrieved successfully', req.user);
 };
