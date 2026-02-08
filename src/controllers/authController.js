@@ -6,7 +6,7 @@ export const registerUser = async (req, res, next) => {
   const result = await register({ firstName, lastName, email, password, role });
   res.status(201).json({
    success: true,
-   message: 'Registration successful. Check email for OTP.',
+   message: 'Registration successful. Check email/console for OTP.',
    data: { userId: result.userId }
   });
  } catch (error) {
@@ -44,11 +44,12 @@ export const loginUser = async (req, res, next) => {
 
 export const refreshAccessToken = async (req, res, next) => {
  try {
-  const { refreshToken } = req.validated;
-  const tokens = await refreshToken(refreshToken);
+  const { refreshToken: token } = req.validated;
+  const newTokens = await refreshToken(token);
   res.json({
    success: true,
-   data: tokens
+   message: 'Tokens refreshed successfully',
+   data: newTokens
   });
  } catch (error) {
   next(error);

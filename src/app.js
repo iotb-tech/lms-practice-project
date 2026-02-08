@@ -11,8 +11,13 @@ app.get('/', (req, res) => {
  res.send('API is running...');
 });
 
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Public auth routes
 app.use('/api/auth', authRoutes);
+
 // Connect to MongoDB
 await connectDB();
 

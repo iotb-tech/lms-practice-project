@@ -1,16 +1,24 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import {
  registerUser,
  verifyOtpHandler,
  loginUser,
  refreshAccessToken
 } from '../controllers/authController.js';
-import {
- authenticateToken,
- authorizeRoles
-} from '../middleware/authMiddleware.js';
+import { authenticateToken } from '../middleware/authMiddleware.js';
 
-// Simple inline validation - NO external files needed
+const router = Router();
+
+
+const authLimiter = rateLimit({
+ windowMs: 15 * 60 * 1000, // 15 minutes
+ max: 5,
+ message: { success: false, message: 'Too many attempts' },
+ standardHeaders: true,
+ legacyHeaders: false,
+});
+
 const simpleValidation = (req, res, next) => {
  const { firstName, lastName, email, password, role, userId, otp, refreshToken } = req.body;
 
@@ -45,12 +53,11 @@ const simpleValidation = (req, res, next) => {
  next();
 };
 
-const router = Router();
 
-router.post('/register', simpleValidation, registerUser);
-router.post('/verify-otp', simpleValidation, verifyOtpHandler);
-router.post('/login', simpleValidation, loginUser);
-router.post('/refresh', simpleValidation, refreshAccessToken);
+router.post('/register', authLimiter, simpleValidation, registerUser);
+router.post('/verify-otp', authLimiter, simpleValidation, verifyOtpHandler);
+router.post('/login', authLimiter, simpleValidation, loginUser);
+router.post('/refresh', authLimiter, simpleValidation, refreshAccessToken);
 
 router.get('/profile', authenticateToken, (req, res) => {
  res.json({ success: true, data: req.user });
