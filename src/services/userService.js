@@ -28,16 +28,24 @@ export const updateUserOtp = async (userId, otp, expiresAt) => {
  );
 };
 
-export const verifyUserOtp = async (userId, otp) => {
- const user = await User.findById(userId).select('otp otpExpiresAt isActive');
+export const verifyUserOtp = async (otp) => {
 
- console.log('🔍 DEBUG:', { userId, otp, storedOtp: user?.otp, expires: user?.otpExpiresAt });
+ const user = await User.findOne({
+  otp,
+  otpExpiresAt: { $gt: new Date() }
+ }).select('otp otpExpiresAt isActive');
 
- if (!user || user.otp !== otp || new Date() > user.otpExpiresAt) {
+ console.log(' DEBUG:', {
+  otp,
+  foundUserId: user?._id,
+  storedOtp: user?.otp,
+  expires: user?.otpExpiresAt
+ });
+
+ if (!user) {
   return null;
  }
-
- await User.findByIdAndUpdate(userId, {
+ await User.findByIdAndUpdate(user._id, {
   $unset: { otp: 1, otpExpiresAt: 1 },
   isActive: true
  });

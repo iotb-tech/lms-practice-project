@@ -16,8 +16,8 @@ export const registerUser = async (req, res, next) => {
 
 export const verifyOtpHandler = async (req, res, next) => {
  try {
-  const { userId, otp } = req.validated;
-  const tokens = await verifyOtp(userId, otp);
+  const { otp } = req.validated;
+  const tokens = await verifyOtp(otp);
   res.json({
    success: true,
    message: 'Verification successful',

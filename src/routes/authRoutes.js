@@ -39,8 +39,8 @@ const simpleValidation = (req, res, next) => {
  }
 
  if (req.path.includes('verify-otp')) {
-  if (!userId || !otp || otp.length !== 6) return res.status(400).json({ success: false, message: 'Valid userId and 6-digit OTP required' });
-  req.validated = { userId, otp };
+  if (!otp || otp.length !== 6) return res.status(400).json({ success: false, message: 'Valid 6-digit OTP required' });
+  req.validated = { otp };
   return next();
  }
 
