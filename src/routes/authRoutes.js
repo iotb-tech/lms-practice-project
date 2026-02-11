@@ -1,26 +1,28 @@
 import { Router } from 'express';
 import {
- authLimiter,
- otpLimiter,
- refreshLimiter
-} from '../middleware/rateLimit.js';
-import { validateRequest } from '../middleware/validation.js';
-import {
- registerUser,
- verifyOtpHandler,
- loginUser,
- refreshAccessToken,
- getProfile
+  validateRegister,
+  validateLogin,
+  createValidator
+} from '../middleware/validation.js';
+import { 
+  registerUser, 
+  loginUser,
+  verifyOtpHandler,
+  getProfile 
 } from '../controllers/authController.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import { z } from 'zod';
+
+
+const otpSchema = z.object({
+  otp: z.string().min(4, 'OTP must be at least 4 digits').max(6, 'OTP must be at most 6 digits')
+});
+const validateOtp = createValidator(otpSchema);
 
 const router = Router();
 
-router.post('/register', authLimiter, validateRequest, registerUser);
-router.post('/login', authLimiter, validateRequest, loginUser);
-router.post('/verify-otp', otpLimiter, validateRequest, verifyOtpHandler);
-router.post('/refresh', refreshLimiter, validateRequest, refreshAccessToken);
+router.post('/register', validateRegister, registerUser);
+router.post('/login', validateLogin, loginUser);
+router.post('/verify-otp', validateOtp, verifyOtpHandler);
 
-router.get('/profile', authenticateToken, getProfile);
-
+router.get('/profile', getProfile);  
 export default router;
