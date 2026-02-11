@@ -13,6 +13,8 @@ import { config } from '../config/index.js';
 import { generateTokens } from '../utils/jwt.js';
 
 export const register = async (userData) => {
+  console.log(' Registering user:', userData.email);
+  
   const existingUser = await findUserByEmail(userData.email);
   const otp = generateOTP();
   const expiresAt = new Date(Date.now() + OTP_EXPIRY);
@@ -24,18 +26,24 @@ export const register = async (userData) => {
       throw new AppError('Email already registered and active', 409);
     }
     userId = existingUser._id;
+    console.log('Updating OTP for existing user:', userId);
     await updateUserOtp(userId, otp, expiresAt);
   } else {
+    console.log('Creating new user');
     const user = await createUser(userData);
     userId = user._id;
+    console.log('Setting OTP for new user:', userId);
     await updateUserOtp(userId, otp, expiresAt);
   }
 
+  console.log('Sending OTP email to:', userData.email);
   await sendOtpEmail(userData.email, otp);
-  return { userId: userId.toString() };
+  
+  return { userId: userId.toString(), message: 'OTP sent to email' };
 };
 
 export const verifyOtp = async (otp) => {
+  console.log('Verifying OTP:', otp);
   const user = await verifyUserOtp(otp);
   if (!user) {
     throw new AppError('Invalid or expired OTP', 400);
