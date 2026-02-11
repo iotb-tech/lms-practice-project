@@ -4,7 +4,9 @@ import { AppError } from '../utils/AppError.js';
 export const registerSchema = z.object({
   email: z.string().email('Valid email required'),
   password: z.string().min(6, 'Password must be 6+ chars'),
-  name: z.string().min(1, 'Name required').optional()
+  firstName: z.string().min(1, 'First name required').max(50),
+  lastName: z.string().min(1, 'Last name required').max(50),
+  role: z.enum(["student", "instructor", "admin"])
 });
 
 export const loginSchema = z.object({
@@ -19,6 +21,12 @@ export const createUserSchema = z.object({
   password: z.string().min(8, 'Password must be 8+ chars'),
   role: z.enum(["student", "instructor", "admin"]).optional()
 });
+
+export const otpSchema = z.object({
+  otp: z.string().min(4, 'OTP must be at least 4 digits').max(6, 'OTP must be at most 6 digits')
+});
+
+
 
 export const updateUserSchema = z.object({
   firstName: z.string().min(1, 'First name required').max(50).optional(),
@@ -56,3 +64,4 @@ export const validateRegister = createValidator(registerSchema);
 export const validateLogin = createValidator(loginSchema);
 export const validateCreateUser = createValidator(createUserSchema);
 export const validateUpdateUser = createValidator(updateUserSchema);
+export const validateOtp = createValidator(otpSchema);
