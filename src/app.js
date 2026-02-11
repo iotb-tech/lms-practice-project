@@ -4,11 +4,11 @@ import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
-
+import userRoutes from './routes/userRoutes.js'
 const app = express();
 const PORT = process.env.PORT || 9000;
 
-// ✅ MIDDLEWARE FIRST (CRITICAL ORDER)
+// MIDDLEWARE FIRST (CRITICAL ORDER)
 app.use(cors({
   origin: process.env.CORS_ORIGINS?.split(',') || 'http://localhost:3000'
 }));
@@ -19,15 +19,16 @@ app.get('/', (req, res) => {
   res.json({ message: 'LMS API is running...' });
 });
 
-// ✅ ROUTES
+// ROUTES
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes); 
 
-// ✅ GLOBAL ERROR HANDLER (LAST - FIXED)
+// GLOBAL ERROR HANDLER (LAST - FIXED)
 app.use((err, req, res, next) => {
-  console.error('🚨 Global error:', err.name, err.message);
+  console.error('Global error:', err.name, err.message);
   console.log('Error data:', err.data); // Debug
   
-  // ✅ Handle AppError with validation details
+  // Handle AppError with validation details
   if (err.name === 'AppError') {
     return res.status(err.statusCode || 400).json({
       success: false,
@@ -55,13 +56,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ✅ START SERVER
+// START SERVER
 const startServer = async () => {
   try {
     await connectDB();
-    console.log('✅ MongoDB connected');
+    console.log('MongoDB connected');
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

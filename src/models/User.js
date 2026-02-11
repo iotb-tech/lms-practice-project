@@ -1,49 +1,80 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
     firstName: {
       type: String,
-      required: true,
+      required: [true, 'First name is required'],
+      trim: true,
+      maxlength: 50
     },
     lastName: {
       type: String,
-      required: true,
+      required: [true, 'Last name is required'],
+      trim: true,
+      maxlength: 50
     },
     email: {
       type: String,
-      required: true,
+      required: [true, 'Email is required'],
       unique: true,
+      lowercase: true,
+      trim: true
     },
-    password: {
+    passwordHash: {
       type: String,
-      required: true,
+      required: [true, 'Password is required'],
+      select: false
     },
     role: {
       type: String,
       enum: ["student", "instructor", "admin"],
-      default: "student",
-      index: true,
+      default: "student"
     },
-    avatarUrl: {
+    status: {
       type: String,
+      enum: ["active", "inactive"],
+      default: "inactive"
     },
-    isActive: {
-      type: Boolean,
-      default: false,
+    avatarUrl: { type: String },
+    profile: {
+      bio: String,
+      phone: String,
+      timezone: { type: String, default: "Africa/Lagos" }
     },
-
-    otp: {
-      type: String,
-      default: null,
-    },
-    otpExpiresAt: {
-      type: Date,
-      default: null,
-    },
+    enrollments: [{
+      courseId: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
+      status: { type: String, enum: ["enrolled", "completed", "expired"], default: "enrolled" },
+      progress: { type: Number, default: 0 },
+      completionDate: Date
+    }],
+    otp: { type: String, default: null },
+    otpExpiresAt: { type: Date, default: null },
+    lastLoginAt: Date
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { transform: (doc, ret) => { delete ret.passwordHash; } }
+  }
 );
 
-const User = mongoose.model("User", userSchema);
-export default User;
+// ✅ ONLY compound index - NO duplicate email index
+userSchema.index({ role: 1, status: 1 });
+
+// ✅ NO pre-save hook - hashing done in userService.js
+
+// ✅ Password comparison method
+userSchema.methods.comparePassword = async function(password) {
+  if (!this.passwordHash) {
+    console.log('❌ No passwordHash for user:', this.email);
+    return false;
+  }
+  return bcrypt.compare(password, this.passwordHash);
+};
+
+userSchema.virtual("name").get(function() {
+  return `${this.firstName} ${this.lastName}`.trim();
+});
+
+export default mongoose.model("User", userSchema);
