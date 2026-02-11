@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/AppError.js';
+import User from '../models/User.js';  
 import {
   createUser,
   findUserByEmail,
@@ -8,12 +9,11 @@ import {
   verifyUserOtp
 } from './userService.js';
 import { sendOtpEmail, generateOTP, OTP_EXPIRY } from '../utils/otp.js';
-import { comparePassword } from '../utils/hash.js';
 import { config } from '../config/index.js';
 import { generateTokens } from '../utils/jwt.js';
 
 export const register = async (userData) => {
-  console.log(' Registering user:', userData.email);
+  console.log('Registering user:', userData.email);
   
   const existingUser = await findUserByEmail(userData.email);
   const otp = generateOTP();
@@ -22,7 +22,7 @@ export const register = async (userData) => {
   let userId;
 
   if (existingUser) {
-    if (existingUser.isActive) {
+    if (existingUser.status === "active") {  
       throw new AppError('Email already registered and active', 409);
     }
     userId = existingUser._id;
@@ -49,16 +49,41 @@ export const verifyOtp = async (otp) => {
     throw new AppError('Invalid or expired OTP', 400);
   }
 
+  //  Activate user after OTP verification
+  await User.findByIdAndUpdate(user._id, { status: "active" });
+  
   const payload = { userId: user._id, role: user.role };
   return generateTokens(payload);
 };
 
 export const login = async (email, password) => {
-  const user = await findUserByEmail(email);
+  console.log('Login attempt for:', email);
+  
+  //  DIRECT MODEL QUERY - bypass ALL service layer issues
+  const user = await User.findOne({ email }).select('+passwordHash');
+  
+  console.log('👤 User found:', !!user, 'Status:', user?.status);
 
-  if (!user || !user.isActive || !(await comparePassword(password, user.password))) {
+  // Use status enum from your model
+  if (!user || user.status !== "active") {
+    console.log('Login failed: user inactive or not found');
     throw new AppError('Invalid credentials', 401);
   }
+
+  //  Use YOUR MODEL'S comparePassword method directly
+  const isPasswordValid = await user.comparePassword(password);
+  console.log('Password valid:', isPasswordValid);
+  
+  if (!isPasswordValid) {
+    console.log('Login failed: invalid password');
+    throw new AppError('Invalid credentials', 401);
+  }
+
+  // Update last login timestamp
+  user.lastLoginAt = new Date();
+  await user.save({ validateBeforeSave: false });
+
+  console.log('Login successful for:', email);
 
   const payload = { userId: user._id, role: user.role };
   return generateTokens(payload);
@@ -67,9 +92,9 @@ export const login = async (email, password) => {
 export const refreshTokenFunc = async (refreshToken) => {
   try {
     const decoded = jwt.verify(refreshToken, config.jwt.refreshSecret);
-    const user = await findUserById(decoded.userId);
+    const user = await User.findById(decoded.userId).select('+passwordHash');
 
-    if (!user || !user.isActive) {
+    if (!user || user.status !== "active") {  
       throw new AppError('Invalid refresh token', 401);
     }
 
