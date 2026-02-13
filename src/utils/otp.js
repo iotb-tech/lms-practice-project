@@ -32,7 +32,7 @@ transporter.verify((error, success) => {
 
 export const sendOtpEmail = async (email, otp) => {
   try {
-    console.log('📧 Sending OTP to:', email);
+    console.log('Sending OTP to:', email);
     
     const mailOptions = {
       from: `"LMS Platform" <${process.env.SMTP_USER}>`,
