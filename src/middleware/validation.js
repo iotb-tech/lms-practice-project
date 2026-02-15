@@ -23,10 +23,11 @@ export const createUserSchema = z.object({
 });
 
 export const otpSchema = z.object({
-  otp: z.string().min(4, 'OTP must be at least 4 digits').max(6, 'OTP must be at most 6 digits')
+  otp: z.string()
+    .min(4, 'OTP must be at least 4 digits')
+    .max(6, 'OTP must be at most 6 digits')
+    .regex(/^\d{4,6}$/, 'OTP must contain only 4-6 digits')
 });
-
-
 
 export const updateUserSchema = z.object({
   firstName: z.string().min(1, 'First name required').max(50).optional(),

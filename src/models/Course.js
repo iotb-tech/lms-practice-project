@@ -9,14 +9,28 @@ const CourseSchema = new mongoose.Schema(
     description: {
       type: String,
     },
+    category: {
+      type: String,
+      index: true,
+    },
+    level: {
+      type: String,
+      enum: ["beginner", "intermediate", "advanced"],
+    },
     instructor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    isPublished: {
+    status: {
+      type: String,
+      enum: ["draft", "published", "archived"],
+      default: "draft",
+    },
+    isDeleted: {
       type: Boolean,
       default: false,
+      index: true,
     },
   },
   { timestamps: true },
