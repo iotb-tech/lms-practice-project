@@ -62,7 +62,7 @@ export const login = async (email, password) => {
   //  DIRECT MODEL QUERY - bypass ALL service layer issues
   const user = await User.findOne({ email }).select('+passwordHash');
   
-  console.log('👤 User found:', !!user, 'Status:', user?.status);
+  console.log(' User found:', !!user, 'Status:', user?.status);
 
   // Use status enum from your model
   if (!user || user.status !== "active") {

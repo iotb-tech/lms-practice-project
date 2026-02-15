@@ -10,8 +10,8 @@ export const ROLE_PERMISSIONS = {
     "grade_quizzes", "view_progress"
   ],
   admin: [
-    "*",                    // Wildcard for ALL permissions
-    "view_users",           // ✅ Add user management
+    "*",                                                  
+    "view_users",           
     "create_users",
     "update_users", 
     "delete_users",

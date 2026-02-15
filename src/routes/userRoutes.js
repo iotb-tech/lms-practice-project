@@ -1,50 +1,12 @@
+
 import express from "express";
-import User from '../models/User.js';                    
+import User from '../models/User.js';                  
 import { authenticateToken } from "../middleware/authMiddleware.js";
 import { validateCreateUser, validateUpdateUser } from '../middleware/validation.js';
 import bcrypt from 'bcryptjs';
+import { authorizeRole, canAccessUser } from "../middleware/role.middleware.js";
 
 const router = express.Router(); 
-
-
-const ROLE_PERMISSIONS = {
-  student: [],
-  instructor: ['view_profile'],
-  admin: ['*', 'view_users', 'create_users', 'update_users', 'delete_users']
-};
-
-const authorizeRole = (requiredPermission) => {
-  return (req, res, next) => {
-    const userPermissions = ROLE_PERMISSIONS[req.user.role] || [];
-    const hasPermission = userPermissions.includes("*") || 
-                         userPermissions.includes(requiredPermission);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        success: false,
-        message: "You do not have permission to perform this action" 
-      });
-    }
-    next();
-  };
-};
-
-
-const canAccessUser = () => {
-  return (req, res, next) => {
-    const userPermissions = ROLE_PERMISSIONS[req.user.role] || [];
-    const hasAdminAccess = userPermissions.includes("*") || userPermissions.includes("view_users");
-    
-    if (req.user.id === req.params.id || hasAdminAccess) {
-      return next();
-    }
-    
-    return res.status(403).json({ 
-      success: false,
-      message: "You do not have permission to access this user" 
-    });
-  };
-};
 
 const hashPassword = (password) => {
   return new Promise((resolve, reject) => {
@@ -55,7 +17,6 @@ const hashPassword = (password) => {
   });
 };
 
-// GET /api/v1/users - Admin only
 router.get("/", 
   authenticateToken, 
   authorizeRole("view_users"), 
@@ -97,7 +58,6 @@ router.get("/",
   }
 );
 
-// POST /api/v1/users - Admin only
 router.post("/", 
   authenticateToken, 
   authorizeRole("create_users"), 
@@ -137,7 +97,6 @@ router.post("/",
   }
 );
 
-// GET /api/v1/users/:id - Self or Admin
 router.get("/:id", 
   authenticateToken, 
   canAccessUser(),
@@ -166,7 +125,6 @@ router.get("/:id",
   }
 );
 
-// PATCH /api/v1/users/:id - Self or Admin
 router.patch("/:id", 
   authenticateToken, 
   canAccessUser(),
@@ -205,4 +163,4 @@ router.patch("/:id",
   }
 );
 
-export default router;  
+export default router;

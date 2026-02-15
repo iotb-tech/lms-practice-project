@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
   validateRegister,
   validateLogin,
-  createValidator
+  createValidator,
+  validateOtp
 } from '../middleware/validation.js';
 import { 
   registerUser, 
@@ -13,10 +14,7 @@ import {
 import { z } from 'zod';
 
 
-const otpSchema = z.object({
-  otp: z.string().min(4, 'OTP must be at least 4 digits').max(6, 'OTP must be at most 6 digits')
-});
-const validateOtp = createValidator(otpSchema);
+
 
 const router = Router();
 
