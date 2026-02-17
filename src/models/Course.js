@@ -36,6 +36,8 @@ const CourseSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+CourseSchema.index({ instructor: 1, status: 1 });
+
 const Course = mongoose.model("Course", CourseSchema);
 
 export default Course;

@@ -20,9 +20,15 @@ const lessonSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    isDeleted: {
+    type: Boolean,
+    default: false
+  }
   },
   { timestamps: true },
 );
+
+lessonSchema.index({ course: 1, order: 1 });
 
 const Lesson = mongoose.model("Lesson", lessonSchema);
 

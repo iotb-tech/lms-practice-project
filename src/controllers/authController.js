@@ -1,12 +1,5 @@
 import { register, verifyOtp, login, refreshTokenFunc } from '../services/authService.js';
-
-const sendSuccessResponse = (res, statusCode, message, data = null) => {
-  res.status(statusCode).json({
-    success: true,
-    message,
-    ...(data && { data }),
-  });
-};
+import { sendSuccessResponse } from '../utils/response.js';
 
 export const registerUser = async (req, res, next) => {
   try {
