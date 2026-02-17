@@ -1,17 +1,22 @@
-
-import { ROLE_PERMISSIONS } from '../config/permissions.js';
+import { ROLE_PERMISSIONS } from "../config/permissions.js";
+import { AppError } from "../utils/AppError.js";
 
 export const authorizeRole = (requiredPermission) => {
   return (req, res, next) => {
-    const userPermissions = ROLE_PERMISSIONS[req.user.role] || [];
-    const hasPermission = userPermissions.includes("*") || 
-                         userPermissions.includes(requiredPermission);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        success: false,
-        message: "You do not have permission to perform this action" 
-      });
+    const { role } = req.user;
+    const permissions = ROLE_PERMISSIONS[role];
+
+    if (!role) {
+      throw new AppError("Access denied", 403);
+    }
+
+    // Admin shortcut
+    if (permissions.includes("*")) {
+      return next();
+    }
+
+    if (!permissions || !permissions.includes(requiredPermission)) {
+      throw new AppError("You do not have permission to perform this action", 403);
     }
     next();
   };
