@@ -3,6 +3,7 @@ import { sendSuccessResponse } from "../utils/response.js";
 
 export const createLesson = async (req, res, next) => {
     try {
+        
         const lesson = await lessonService.createLesson(req.params.courseId, req.body);
         sendSuccessResponse(res, 201, "Lesson created successfully", lesson);
     } catch (error) {

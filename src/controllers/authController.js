@@ -1,11 +1,16 @@
-import { register, verifyOtp, login, refreshTokenFunc } from '../services/authService.js';
+import { 
+  registerService, 
+  verifyOtpService, 
+  loginService, 
+  refreshTokenService 
+} from '../services/authService.js';
+
 import { sendSuccessResponse } from '../utils/response.js';
 
 export const registerUser = async (req, res, next) => {
   try {
-    // req.validatedData (not req.validated)
-    const result = await register(req.validatedData);
-    sendSuccessResponse(res, 201, 'Registration successful. Check your email for OTP.', result);
+    const result = await registerService(req.validatedData);
+    sendSuccessResponse(res, 201, result.message, result);
   } catch (error) {
     next(error);
   }
@@ -13,8 +18,7 @@ export const registerUser = async (req, res, next) => {
 
 export const verifyOtpHandler = async (req, res, next) => {
   try {
-    // req.validatedData.otp
-    const tokens = await verifyOtp(req.validatedData.otp);
+    const tokens = await verifyOtpService(req.validatedData.otp);
     sendSuccessResponse(res, 200, 'Email verification successful', tokens);
   } catch (error) {
     next(error);
@@ -23,9 +27,8 @@ export const verifyOtpHandler = async (req, res, next) => {
 
 export const loginUser = async (req, res, next) => {
   try {
-    // Destructure from req.validatedData
     const { email, password } = req.validatedData;
-    const tokens = await login(email, password);
+    const tokens = await loginService(email, password);
     sendSuccessResponse(res, 200, 'Login successful', tokens);
   } catch (error) {
     next(error);
@@ -34,8 +37,7 @@ export const loginUser = async (req, res, next) => {
 
 export const refreshAccessToken = async (req, res, next) => {
   try {
-    //req.validatedData.refreshToken
-    const newTokens = await refreshTokenFunc(req.validatedData.refreshToken);
+    const newTokens = await refreshTokenService(req.validatedData.refreshToken);
     sendSuccessResponse(res, 200, 'Tokens refreshed successfully', newTokens);
   } catch (error) {
     next(error);
