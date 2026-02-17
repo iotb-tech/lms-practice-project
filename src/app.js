@@ -5,6 +5,7 @@ import cors from 'cors';
 import { connectDB } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js'
+import courseRoutes from './routes/course.route.js';
 const app = express();
 const PORT = process.env.PORT || 9000;
 
@@ -22,6 +23,7 @@ app.get('/', (req, res) => {
 // ROUTES
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); 
+app.use('/api/courses', courseRoutes);
 
 // GLOBAL ERROR HANDLER (LAST - FIXED)
 app.use((err, req, res, next) => {
