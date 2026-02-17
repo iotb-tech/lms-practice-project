@@ -14,7 +14,6 @@ const hashPassword = (password) => {
   });
 };
 
-// Get users with pagination and filtering
 export const getUsersService = async ({ page = 1, limit = 50, role, status }) => {
   const skip = (page - 1) * limit;
   const filter = { status: "active" };
@@ -42,10 +41,8 @@ export const getUsersService = async ({ page = 1, limit = 50, role, status }) =>
   };
 };
 
-// Create new user
 export const createUserService = async (userData) => {
   try {
-    // Proper name handling with fallbacks
     const firstName = userData.firstName || 
                      (userData.name?.split(' ')[0] || 'Unknown');
     
@@ -62,7 +59,7 @@ export const createUserService = async (userData) => {
       email: userData.email.toLowerCase().trim(),
       passwordHash: hashedPassword,
       role: userData.role || "student",
-      status: "inactive" // Service sets inactive, controller can activate if needed
+      status: "inactive"
     });
     
     return await user.save();
@@ -74,7 +71,6 @@ export const createUserService = async (userData) => {
   }
 };
 
-// Get user by ID
 export const getUserByIdService = async (id) => {
   if (!isValidObjectId(id)) {
     throw new AppError('Invalid user ID', 400);
@@ -88,7 +84,6 @@ export const getUserByIdService = async (id) => {
   return user;
 };
 
-// Update user
 export const updateUserService = async (id, updates) => {
   if (!isValidObjectId(id)) {
     throw new AppError('Invalid user ID', 400);
@@ -112,9 +107,15 @@ export const updateUserService = async (id, updates) => {
   return user;
 };
 
-// OTP Services (from your service file)
 export const findUserByEmail = async (email) => {
-  return User.findOne({ email }).select('+passwordHash');
+  return User.findOne({ email: email.toLowerCase().trim() }).select('+passwordHash');
+};
+
+export const findUserById = async (id) => {
+  if (!isValidObjectId(id)) {
+    throw new AppError('Invalid user ID', 400);
+  }
+  return User.findById(id);
 };
 
 export const updateUserOtp = async (userId, otp, expiresAt) => {

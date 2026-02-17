@@ -1,5 +1,4 @@
-import { getUsersService, createUserService, getUserByIdService, updateUserService } from '../services/userService.js';
-import { AppError } from '../utils/AppError.js';
+import { getUsersService, getUserByIdService, updateUserService } from '../services/userService.js';
 
 export const getUsers = async (req, res, next) => {
   try {
@@ -8,22 +7,6 @@ export const getUsers = async (req, res, next) => {
       success: true,
       data: result.users,
       pagination: result.pagination
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const createUser = async (req, res, next) => {
-  try {
-    const userData = req.validatedData;
-    const user = await createUserService(userData);
-    const safeUser = await getUserByIdService(user._id);
-    
-    res.status(201).json({
-      success: true,
-      message: "User created successfully",
-      data: safeUser
     });
   } catch (error) {
     next(error);
