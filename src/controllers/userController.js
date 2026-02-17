@@ -1,65 +1,24 @@
-import User from '../models/User.js';
-import bcrypt from 'bcryptjs';
+import { getUsersService, createUserService, getUserByIdService, updateUserService } from '../services/userService.js';
+import { AppError } from '../utils/AppError.js';
 
-const hashPassword = (password) => {
-  return new Promise((resolve, reject) => {
-    bcrypt.hash(password, 12, (err, hash) => {
-      if (err) reject(err);
-      else resolve(hash);
-    });
-  });
-};
-
-export const getUsers = async (req, res) => {
+export const getUsers = async (req, res, next) => {
   try {
-    const { page = 1, limit = 50, role, status } = req.query;
-    const skip = (page - 1) * limit;
-
-    const filter = { status: "active" };
-    if (role) filter.role = role;
-    if (status) filter.status = status;
-
-    const users = await User.find(filter)
-      .select("-passwordHash")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .lean();
-
-    const total = await User.countDocuments(filter);
-
+    const result = await getUsersService(req.query);
     res.json({
       success: true,
-      data: users,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      data: result.users,
+      pagination: result.pagination
     });
   } catch (error) {
-    console.error('Get users error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch users' 
-    });
+    next(error);
   }
 };
 
-export const createUser = async (req, res) => {
+export const createUser = async (req, res, next) => {
   try {
     const userData = req.validatedData;
-    const hashedPassword = await hashPassword(userData.password);
-    
-    const user = new User({
-      ...userData,
-      passwordHash: hashedPassword,
-      status: "active"
-    });
-    
-    await user.save();
-    const safeUser = await User.findById(user._id).select("-passwordHash");
+    const user = await createUserService(userData);
+    const safeUser = await getUserByIdService(user._id);
     
     res.status(201).json({
       success: true,
@@ -67,62 +26,26 @@ export const createUser = async (req, res) => {
       data: safeUser
     });
   } catch (error) {
-    console.error('Create user error:', error);
-    if (error.code === 11000) {
-      return res.status(409).json({ 
-        success: false,
-        error: "Email already exists" 
-      });
-    }
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to create user" 
-    });
+    next(error);
   }
 };
 
-export const getUserById = async (req, res) => {
+export const getUserById = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select("-passwordHash");
-    
-    if (!user) {
-      return res.status(404).json({ 
-        success: false,
-        error: "User not found" 
-      });
-    }
-    
+    const user = await getUserByIdService(req.params.id);
     res.json({
       success: true,
       data: user
     });
   } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to fetch user" 
-    });
+    next(error);
   }
 };
 
-export const updateUser = async (req, res) => {
+export const updateUser = async (req, res, next) => {
   try {
     const updates = req.validatedData;
-    
-    if (updates.password) {
-      updates.passwordHash = await hashPassword(updates.password);
-      delete updates.password;
-    }
-
-    const user = await User.findByIdAndUpdate(
-      req.params.id, 
-      updates, 
-      { new: true, runValidators: true }
-    ).select("-passwordHash");
-    
-    if (!user) {
-      return res.status(404).json({ success: false, error: "User not found" });
-    }
+    const user = await updateUserService(req.params.id, updates);
     
     res.json({
       success: true,
@@ -130,10 +53,6 @@ export const updateUser = async (req, res) => {
       data: user
     });
   } catch (error) {
-    console.error('Update user error:', error);
-    if (error.code === 11000) {
-      return res.status(409).json({ success: false, error: "Email already exists" });
-    }
-    res.status(500).json({ success: false, error: "Failed to update user" });
+    next(error);
   }
 };

@@ -5,7 +5,45 @@ import bcrypt from 'bcryptjs';
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-export const createUser = async (userData) => {
+const hashPassword = (password) => {
+  return new Promise((resolve, reject) => {
+    bcrypt.hash(password, 12, (err, hash) => {
+      if (err) reject(err);
+      else resolve(hash);
+    });
+  });
+};
+
+// Get users with pagination and filtering
+export const getUsersService = async ({ page = 1, limit = 50, role, status }) => {
+  const skip = (page - 1) * limit;
+  const filter = { status: "active" };
+  
+  if (role) filter.role = role;
+  if (status) filter.status = status;
+
+  const users = await User.find(filter)
+    .select("-passwordHash")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit))
+    .lean();
+
+  const total = await User.countDocuments(filter);
+
+  return {
+    users,
+    pagination: {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      pages: Math.ceil(total / limit)
+    }
+  };
+};
+
+// Create new user
+export const createUserService = async (userData) => {
   try {
     // Proper name handling with fallbacks
     const firstName = userData.firstName || 
@@ -16,27 +54,19 @@ export const createUser = async (userData) => {
                      ? userData.name.split(' ').slice(1).join(' ')
                      : 'User');
 
-    // Hash BEFORE passing to model
-    const hashedPassword = await new Promise((resolve, reject) => {
-      bcrypt.hash(userData.password, 12, (err, hash) => {
-        if (err) reject(err);
-        else resolve(hash);
-      });
-    });
+    const hashedPassword = await hashPassword(userData.password);
 
     const user = new User({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: userData.email.toLowerCase().trim(),
-      passwordHash: hashedPassword,  
-      
+      passwordHash: hashedPassword,
       role: userData.role || "student",
-      status: "inactive"
+      status: "inactive" // Service sets inactive, controller can activate if needed
     });
     
     return await user.save();
   } catch (error) {
-    console.error('Create user error:', error.message);
     if (error.code === 11000) {
       throw new AppError('Email already exists', 409);
     }
@@ -44,15 +74,47 @@ export const createUser = async (userData) => {
   }
 };
 
-export const findUserByEmail = async (email) => {
-  return User.findOne({ email }).select('+passwordHash');
-};
-
-export const findUserById = async (id) => {
+// Get user by ID
+export const getUserByIdService = async (id) => {
   if (!isValidObjectId(id)) {
     throw new AppError('Invalid user ID', 400);
   }
-  return User.findById(id).select('-passwordHash');
+  
+  const user = await User.findById(id).select("-passwordHash");
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+  
+  return user;
+};
+
+// Update user
+export const updateUserService = async (id, updates) => {
+  if (!isValidObjectId(id)) {
+    throw new AppError('Invalid user ID', 400);
+  }
+
+  if (updates.password) {
+    updates.passwordHash = await hashPassword(updates.password);
+    delete updates.password;
+  }
+
+  const user = await User.findByIdAndUpdate(
+    id, 
+    updates, 
+    { new: true, runValidators: true }
+  ).select("-passwordHash");
+  
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+  
+  return user;
+};
+
+// OTP Services (from your service file)
+export const findUserByEmail = async (email) => {
+  return User.findOne({ email }).select('+passwordHash');
 };
 
 export const updateUserOtp = async (userId, otp, expiresAt) => {
