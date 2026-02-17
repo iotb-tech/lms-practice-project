@@ -1,68 +1,58 @@
 import { z } from 'zod';
 import { AppError } from '../utils/AppError.js';
 
-export const registerSchema = z.object({
-  email: z.string().email('Valid email required'),
-  password: z.string().min(6, 'Password must be 6+ chars'),
-  firstName: z.string().min(1, 'First name required').max(50),
-  lastName: z.string().min(1, 'Last name required').max(50),
-  role: z.enum(["student", "instructor", "admin"])
-});
-
-export const loginSchema = z.object({
-  email: z.string().email('Valid email required'),
-  password: z.string().min(6, 'Password must be 6+ chars')
-});
-
-export const createUserSchema = z.object({
-  firstName: z.string().min(1, 'First name required').max(50),
-  lastName: z.string().min(1, 'Last name required').max(50),
-  email: z.string().email('Valid email required'),
-  password: z.string().min(8, 'Password must be 8+ chars'),
-  role: z.enum(["student", "instructor", "admin"]).optional()
-});
-
-export const otpSchema = z.object({
-  otp: z.string()
-    .min(4, 'OTP must be at least 4 digits')
-    .max(6, 'OTP must be at most 6 digits')
-    .regex(/^\d{4,6}$/, 'OTP must contain only 4-6 digits')
-});
-
-export const updateUserSchema = z.object({
-  firstName: z.string().min(1, 'First name required').max(50).optional(),
-  lastName: z.string().min(1, 'Last name required').max(50).optional(),
-  avatarUrl: z.string().url('Valid URL required').optional(),
-  status: z.enum(["active", "inactive"]).optional()
-});
 
 export const createValidator = (schema) => {
   return async (req, res, next) => {
     try {
-      const validatedData = await schema.parseAsync(req.body || {});
-      req.validatedData = validatedData;
+      req.validatedData = await schema.parseAsync(req.body);
       next();
     } catch (error) {
-      if (error.name === 'ZodError') {
-        const issues = error.issues.map(issue => ({
-          path: issue.path.join('.'),
-          message: issue.code === 'invalid_type' && issue.received === 'undefined'
-            ? `${issue.path.join('.')} is required`
-            : issue.message.replace('Invalid input: ', '').replace('expected string, received undefined', 'is required')
-        }));
-        
-        throw new AppError('Validation failed', 400, { errors: issues });
-      }
-      
-      throw new AppError('Validation failed', 400, { 
-        errors: [{ path: '', message: error.message || 'Invalid input' }]
-      });
+      const message = error.errors.map(e => e.message).join(', ');
+      next(new AppError(message, 400));
     }
   };
 };
 
-export const validateRegister = createValidator(registerSchema);
-export const validateLogin = createValidator(loginSchema);
-export const validateCreateUser = createValidator(createUserSchema);
-export const validateUpdateUser = createValidator(updateUserSchema);
-export const validateOtp = createValidator(otpSchema);
+export const validateRegister = createValidator(
+  z.object({
+    email: z.string().email('Invalid email format'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    firstName: z.string().min(1, 'First name is required').optional(),
+    lastName: z.string().min(1, 'Last name is required').optional(),
+    name: z.string().min(1, 'Name is required').optional(),
+    role: z.enum(['student', 'admin', 'teacher']).optional()
+  })
+);
+
+export const validateLogin = createValidator(
+  z.object({
+    email: z.string().email('Invalid email format'),
+    password: z.string().min(1, 'Password is required')
+  })
+);
+
+export const validateOtp = createValidator(
+  z.object({
+    otp: z.string().length(6, 'OTP must be 6 digits')
+  })
+);
+
+export const validateRefreshToken = createValidator(
+  z.object({
+    refreshToken: z.string().min(1, 'Refresh token is required')
+  })
+);
+
+export const validateUpdateUser = createValidator(
+  z.object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    email: z.string().email().optional(),
+    password: z.string().min(6).optional(),
+    role: z.enum(['student', 'admin', 'teacher']).optional(),
+    status: z.enum(['active', 'inactive']).optional()
+  }).refine(data => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided for update'
+  })
+);
