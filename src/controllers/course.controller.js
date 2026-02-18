@@ -1,12 +1,5 @@
 import * as CourseService from "../services/course.service.js";
-
-const sendSuccessResponse = (res, statusCode, message, data = null) => {
-  res.status(statusCode).json({
-    success: true,
-    message,
-    ...(data && { data }),
-  });
-};
+import { sendSuccessResponse } from "../utils/response.js";
 
 export const createCourse = async (req, res, next) => {
   try {

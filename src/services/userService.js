@@ -14,10 +14,15 @@ const hashPassword = (password) => {
   });
 };
 
-export const getUsersService = async ({ page = 1, limit = 50, role, status }) => {
+export const getUsersService = async ({
+  page = 1,
+  limit = 50,
+  role,
+  status,
+}) => {
   const skip = (page - 1) * limit;
   const filter = { status: "active" };
-  
+
   if (role) filter.role = role;
   if (status) filter.status = status;
 
@@ -36,22 +41,13 @@ export const getUsersService = async ({ page = 1, limit = 50, role, status }) =>
       page: parseInt(page),
       limit: parseInt(limit),
       total,
-      pages: Math.ceil(total / limit)
-    }
+      pages: Math.ceil(total / limit),
+    },
   };
 };
 
 export const createUserService = async (userData) => {
   try {
-
-    const firstName = userData.firstName || 
-                     (userData.name?.split(' ')[0] || 'Unknown');
-    
-    const lastName = userData.lastName || 
-                    (userData.name?.includes(' ') 
-                     ? userData.name.split(' ').slice(1).join(' ')
-                     : 'User');
-
     // Proper name handling with fallbacks
     const firstName =
       userData.firstName || userData.name?.split(" ")[0] || "Unknown";
@@ -61,7 +57,6 @@ export const createUserService = async (userData) => {
       (userData.name?.includes(" ")
         ? userData.name.split(" ").slice(1).join(" ")
         : "User");
-
 
     const hashedPassword = await hashPassword(userData.password);
 
@@ -77,7 +72,6 @@ export const createUserService = async (userData) => {
 
     return await user.save();
   } catch (error) {
-
     console.error("Create user error:", error.message);
 
     if (error.code === 11000) {
@@ -89,20 +83,20 @@ export const createUserService = async (userData) => {
 
 export const getUserByIdService = async (id) => {
   if (!isValidObjectId(id)) {
-    throw new AppError('Invalid user ID', 400);
+    throw new AppError("Invalid user ID", 400);
   }
-  
+
   const user = await User.findById(id).select("-passwordHash");
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
-  
+
   return user;
 };
 
 export const updateUserService = async (id, updates) => {
   if (!isValidObjectId(id)) {
-    throw new AppError('Invalid user ID', 400);
+    throw new AppError("Invalid user ID", 400);
   }
 
   if (updates.password) {
@@ -110,25 +104,24 @@ export const updateUserService = async (id, updates) => {
     delete updates.password;
   }
 
-  const user = await User.findByIdAndUpdate(
-    id, 
-    updates, 
-    { new: true, runValidators: true }
-  ).select("-passwordHash");
-  
+  const user = await User.findByIdAndUpdate(id, updates, {
+    new: true,
+    runValidators: true,
+  }).select("-passwordHash");
+
   if (!user) {
-    throw new AppError('User not found', 404);
+    throw new AppError("User not found", 404);
   }
-  
+
   return user;
 };
 
 export const findUserByEmail = async (email) => {
-
-  return User.findOne({ email: email.toLowerCase().trim() }).select('+passwordHash');
+  return User.findOne({ email: email.toLowerCase().trim() }).select(
+    "+passwordHash",
+  );
 
   return User.findOne({ email }).select("+passwordHash");
-
 };
 
 export const findUserById = async (id) => {
@@ -139,7 +132,6 @@ export const findUserById = async (id) => {
   return User.findById(id);
 
   return User.findById(id).select("-passwordHash");
-
 };
 
 export const updateUserOtp = async (userId, otp, expiresAt) => {
