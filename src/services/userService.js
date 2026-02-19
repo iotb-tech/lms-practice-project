@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import { AppError } from '../utils/AppError.js';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -14,12 +15,20 @@ const hashPassword = (password) => {
   });
 };
 
-export const getUsersService = async ({ page = 1, limit = 50, role, status }) => {
+// ✅ ALL EXISTING FUNCTIONS (unchanged)
+export const getUsersService = async ({ page = 1, limit = 50, role, status, search }) => {
   const skip = (page - 1) * limit;
-  const filter = { status: "active" };
+  const filter = { status: { $ne: "deleted" } };
   
   if (role) filter.role = role;
   if (status) filter.status = status;
+  if (search) {
+    filter.$or = [
+      { firstName: { $regex: search, $options: 'i' } },
+      { lastName: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } }
+    ];
+  }
 
   const users = await User.find(filter)
     .select("-passwordHash")
@@ -59,7 +68,7 @@ export const createUserService = async (userData) => {
       email: userData.email.toLowerCase().trim(),
       passwordHash: hashedPassword,
       role: userData.role || "student",
-      status: "inactive"
+      status: userData.status || "inactive"
     });
     
     return await user.save();
@@ -77,7 +86,7 @@ export const getUserByIdService = async (id) => {
   }
   
   const user = await User.findById(id).select("-passwordHash");
-  if (!user) {
+  if (!user || user.status === 'deleted') {
     throw new AppError('User not found', 404);
   }
   
@@ -100,6 +109,27 @@ export const updateUserService = async (id, updates) => {
     { new: true, runValidators: true }
   ).select("-passwordHash");
   
+  if (!user || user.status === 'deleted') {
+    throw new AppError('User not found', 404);
+  }
+  
+  return user;
+};
+
+export const deleteUserService = async (id) => {
+  if (!isValidObjectId(id)) {
+    throw new AppError('Invalid user ID', 400);
+  }
+
+  const user = await User.findByIdAndUpdate(
+    id,
+    { 
+      status: 'deleted', 
+      deletedAt: new Date() 
+    },
+    { new: true }
+  ).select('-passwordHash');
+  
   if (!user) {
     throw new AppError('User not found', 404);
   }
@@ -111,13 +141,7 @@ export const findUserByEmail = async (email) => {
   return User.findOne({ email: email.toLowerCase().trim() }).select('+passwordHash');
 };
 
-export const findUserById = async (id) => {
-  if (!isValidObjectId(id)) {
-    throw new AppError('Invalid user ID', 400);
-  }
-  return User.findById(id);
-};
-
+// 🔥 ADD THESE MISSING FUNCTIONS (required by authService.js)
 export const updateUserOtp = async (userId, otp, expiresAt) => {
   if (!isValidObjectId(userId)) {
     throw new AppError('Invalid user ID', 400);
@@ -144,4 +168,11 @@ export const verifyUserOtp = async (otp) => {
     },
     { new: true }
   );
+};
+
+export const findUserById = async (id) => {
+  if (!isValidObjectId(id)) {
+    throw new AppError('Invalid user ID', 400);
+  }
+  return User.findById(id);
 };
