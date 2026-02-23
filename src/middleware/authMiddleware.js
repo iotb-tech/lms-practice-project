@@ -1,7 +1,6 @@
-
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/AppError.js';
-import User from '../models/User.js';
+import User from '../models/User.js'; 
 import { config } from '../config/index.js';
 
 export const authenticateToken = async (req, res, next) => {
@@ -13,8 +12,10 @@ export const authenticateToken = async (req, res, next) => {
       throw new AppError('Access token required', 401);
     }
 
-    const decoded = jwt.verify(token, config.jwt.accessSecret);
+
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
     const user = await User.findById(decoded.userId).select('-passwordHash'); 
+    
     if (!user || user.status !== "active") { 
       throw new AppError('Invalid or inactive user token', 401);
     }
@@ -22,6 +23,6 @@ export const authenticateToken = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    next(error);
+    next(error); 
   }
 };

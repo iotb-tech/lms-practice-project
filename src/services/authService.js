@@ -3,11 +3,11 @@ import { AppError } from '../utils/AppError.js';
 import { 
   createUserService, 
   findUserByEmail, 
+  findUserById, 
   updateUserOtp, 
   verifyUserOtp 
 } from './userService.js';
-import { sendOtpEmail, generateOTP, OTP_EXPIRY } from '../utils/otp.js';
-import { config } from '../config/index.js';
+import { sendOtpEmail, generateOTP, OTP_EXPIRY } from '../utils/otp.js';  
 import { generateTokens } from '../utils/jwt.js';
 
 export const registerService = async (userData) => {
@@ -82,7 +82,7 @@ export const loginService = async (email, password) => {
 
 export const refreshTokenService = async (refreshToken) => {
   try {
-    const decoded = jwt.verify(refreshToken, config.jwt.refreshSecret);
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     const user = await findUserById(decoded.userId).select('+passwordHash');
 
     if (!user || user.status !== "active") {

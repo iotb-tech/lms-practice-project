@@ -43,6 +43,7 @@ const userSchema = new mongoose.Schema(
       phone: String,
       timezone: { type: String, default: "Africa/Lagos" }
     },
+    
     enrollments: [{
       courseId: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
       status: { type: String, enum: ["enrolled", "completed", "expired"], default: "enrolled" },
@@ -51,23 +52,46 @@ const userSchema = new mongoose.Schema(
     }],
     otp: { type: String, default: null },
     otpExpiresAt: { type: Date, default: null },
-    lastLoginAt: Date
+    lastLoginAt: Date,
+ // admin 
+    adminApiKey: { 
+      type: String, 
+      unique: true, 
+      sparse: true,  
+      select: false  
+    },
+    isSuperAdmin: { 
+      type: Boolean, 
+      default: false 
+    }
   },
   { 
     timestamps: true,
-    toJSON: { transform: (doc, ret) => { delete ret.passwordHash; } }
+    toJSON: { 
+      transform: (doc, ret) => { 
+        delete ret.passwordHash; 
+        delete ret.adminApiKey;  
+      } 
+    },
+    toObject: { 
+      transform: (doc, ret) => { 
+        delete ret.passwordHash; 
+        delete ret.adminApiKey; 
+      } 
+    }
   }
 );
 
-// ✅ ONLY compound index - NO duplicate email index
-userSchema.index({ role: 1, status: 1 });
+// Indexes 
+userSchema.index({ email: 1 });  // Fast email lookups
+userSchema.index({ role: 1, status: 1 });  // Role-based queries
+userSchema.index({ adminApiKey: 1 });  // Fast API key lookup
+userSchema.index({ isSuperAdmin: 1 });  
 
-// ✅ NO pre-save hook - hashing done in userService.js
 
-// ✅ Password comparison method
 userSchema.methods.comparePassword = async function(password) {
   if (!this.passwordHash) {
-    console.log('❌ No passwordHash for user:', this.email);
+    console.log('No passwordHash for user:', this.email);
     return false;
   }
   return bcrypt.compare(password, this.passwordHash);
